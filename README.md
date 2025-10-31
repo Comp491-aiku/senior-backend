@@ -14,14 +14,14 @@ AI-powered travel planning backend built with FastAPI, featuring intelligent age
 
 ## Features
 
-- 🤖 Multi-agent AI system for intelligent trip planning
-- ✈️ Flight search and recommendations via Amadeus API
-- 🏨 Hotel search and booking information
-- 🎯 Activity recommendations based on user preferences
-- 🌤️ Real-time weather forecasts
-- 📊 Budget optimization and cost tracking
-- 🔄 Asynchronous task processing with Celery
-- 📝 Comprehensive API documentation (OpenAPI/Swagger)
+- Multi-agent AI system for intelligent trip planning
+- Flight search and recommendations via Amadeus API
+- Hotel search and booking information
+- Activity recommendations based on user preferences
+- Real-time weather forecasts
+- Budget optimization and cost tracking
+- Asynchronous task processing with Celery
+- Comprehensive API documentation (OpenAPI/Swagger)
 
 ## Project Structure
 
