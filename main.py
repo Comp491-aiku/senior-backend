@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 
-from routers import trips, itinerary, flights, accommodations, weather
+from routers import trips, itinerary, flights, accommodations, weather, auth, chat, sse, alternatives, collaboration
 from utils.config import settings
 
 # Create FastAPI app
@@ -42,6 +42,11 @@ async def health_check():
 
 
 # Include routers
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(chat.router, prefix="/api", tags=["chat"])
+app.include_router(sse.router, prefix="/api", tags=["sse"])
+app.include_router(alternatives.router, prefix="/api", tags=["alternatives"])
+app.include_router(collaboration.router, prefix="/api", tags=["collaboration"])
 app.include_router(trips.router, prefix="/api/trips", tags=["trips"])
 app.include_router(itinerary.router, prefix="/api/trips", tags=["itinerary"])
 app.include_router(flights.router, prefix="/api/flights", tags=["flights"])

@@ -74,3 +74,31 @@ class ActivityAgent(BaseAgent):
         """Calculate total activity cost"""
         # TODO: Implement cost calculation
         return 0.0
+
+    async def find_alternatives(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Find alternative activities
+
+        Args:
+            context: Dictionary with search criteria
+
+        Returns:
+            Dictionary with alternative activities
+        """
+        self.log_info("Finding alternative activities")
+
+        try:
+            # TODO: Implement alternative activity search
+            return {
+                "activities": [
+                    {
+                        "id": "alt_activity_1",
+                        "name": "Alternative Activity",
+                        "price": 50,
+                        "duration": "2h",
+                    }
+                ]
+            }
+        except Exception as e:
+            self.log_error(f"Error finding alternatives: {str(e)}")
+            return {"activities": []}

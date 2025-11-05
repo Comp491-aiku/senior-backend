@@ -66,3 +66,37 @@ class FlightAgent(BaseAgent):
         """Calculate total flight cost"""
         # TODO: Implement cost calculation
         return 0.0
+
+    async def find_alternatives(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Find alternative flights based on current selection
+
+        Args:
+            context: Dictionary containing:
+                - current_flight_id: str
+                - price_range: str (cheaper, same, flexible)
+                - flexibility: int (days +/-)
+                - destination, dates, etc.
+
+        Returns:
+            Dictionary with alternative flights
+        """
+        self.log_info("Finding alternative flights")
+
+        try:
+            # TODO: Implement alternative flight search
+            # For now, return simulated alternatives
+            return {
+                "flights": [
+                    {
+                        "id": "alt_1",
+                        "airline": "Alternative Airline",
+                        "price": 500,
+                        "duration": "5h 30m",
+                        "stops": 0,
+                    }
+                ]
+            }
+        except Exception as e:
+            self.log_error(f"Error finding alternative flights: {str(e)}")
+            return {"flights": []}
