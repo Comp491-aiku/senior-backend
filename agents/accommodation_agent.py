@@ -56,9 +56,87 @@ class AccommodationAgent(BaseAgent):
             return {"options": [], "total_cost": 0.0}
 
     def _rank_accommodations(self, accommodations: list, context: Dict[str, Any]) -> list:
-        """Rank accommodations based on preferences and budget"""
-        # TODO: Implement smart ranking algorithm
-        return []
+        """
+        Rank accommodations based on rating, budget fit, and preferences
+
+        Simple scoring
+        - 40% rating
+        - 40% budget fit
+        - 20% preference
+        """
+        if not accommodations:
+            return []
+
+        budget = context.get("budget")
+        preferences = context.get("preferences", {})
+        # TODO: Decide on given preferences, also how are preferences defined?
+        #       on orchestrator agent, preferences are extracted in user intent but prompt
+        #       does not specify intents for accommodations, which probably would make it
+        #       useless for this case. Additional call to anthropic for agent specific context refinement?
+
+        # TODO: Adjust preferences, this is a blueprint
+        preferred_amenities = preferences.get("amenities", [])
+        preferred_type = preferences.get("type", "").lower()
+
+        scored_accommodations = []
+
+        for accommodation in accommodations:
+            try:
+                # Extract data
+                offers = accommodation.get("offers", [])
+                if not offers:
+                    continue
+
+                offer = offers[0]
+                price = float(offer.get("price", {}).get("total", 0))
+                hotel = accommodation.get("hotel", {})
+                rating = hotel.get("rating", 0)
+                hotel_amenities = hotel.get("amenities", [])
+                hotel_type = hotel.get("type", "").lower()
+
+                score = 0
+
+                # 1. Rating score (0-40 points)
+                if rating:
+                    score += (rating / 5.0) * 40
+
+                # 2. Budget score (0-40 points)
+                if budget and price > 0:
+                    if price <= budget:
+                        # Within budget - higher score for better value
+                        score += 40 * (1 - price / budget)
+                    else:
+                        # Over budget - penalty
+                        score -= (price - budget) / budget * 20
+
+                # 3. Preference score (0-20 points)
+                pref_score = 0
+
+                # Check amenities match (0-10 points)
+                if preferred_amenities and hotel_amenities:
+                    matches = sum(
+                        1 for pref in preferred_amenities
+                        if any(pref.lower() in amenity.lower() for amenity in hotel_amenities)
+                    )
+                    pref_score += (matches / len(preferred_amenities)) * 10
+
+                # Check type match (0-10 points)
+                if preferred_type and hotel_type:
+                    if preferred_type in hotel_type:
+                        pref_score += 10
+
+                score += pref_score
+
+                accommodation["score"] = round(score, 2)
+                scored_accommodations.append(accommodation)
+
+            except Exception as e:
+                self.log_error(f"Error scoring accommodation: {str(e)}")
+                continue
+
+        # Sort by score descending and return top 10
+        scored_accommodations.sort(key=lambda x: x.get("score", 0), reverse=True)
+        return scored_accommodations[:10]
 
     def _calculate_accommodation_cost(self, accommodations: list) -> float:
         """Calculate total accommodation cost"""

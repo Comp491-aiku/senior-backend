@@ -20,6 +20,7 @@ class AmadeusClient:
         self.api_key = settings.AMADEUS_API_KEY
         self.api_secret = settings.AMADEUS_API_SECRET
         self.base_url = "https://test.api.amadeus.com/v2"
+        self.base_url_v3 = "https://test.api.amadeus.com/v3"
         self.access_token: Optional[str] = None
 
     async def _get_access_token(self) -> str:
@@ -96,6 +97,34 @@ class AmadeusClient:
             logger.error(f"Error searching flights: {str(e)}")
             return []
 
+    async def get_city_code(self, city_name: str) -> Optional[str]:
+        """
+        Convert city name to IATA city code
+        """
+        try:
+            token = await self._get_access_token()
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url_v3}/reference-data/locations/cities",
+                    params={
+                        "keyword": city_name,
+                        "max": 1,
+                    },
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=30.0,
+                )
+                response.raise_for_status()
+                data = response.json().get("data", [])
+
+                if data:
+                    return data[0].get("iataCode")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting city code for {city_name}: {str(e)}")
+            return None
+
     async def search_hotels(
         self,
         location: str,
@@ -103,16 +132,21 @@ class AmadeusClient:
         check_out: datetime,
         guests: int = 1,
         budget: Optional[float] = None,
+        hotel_limit: int = 20
     ) -> List[Dict[str, Any]]:
         """
-        Search for hotels
+        Search for hotels using two-step process:
+        1. Convert city name to IATA code (if needed)
+        2. Search hotels by city to get hotel IDs
+        3. Get offers for those hotel IDs
 
         Args:
-            location: City name or coordinates
+            location: City name or IATA code (e.g., "Paris" or "PAR")
             check_in: Check-in date
             check_out: Check-out date
             guests: Number of guests
             budget: Maximum price per night
+            hotel_limit: number of hotels returned
 
         Returns:
             List of hotel offers
@@ -120,13 +154,23 @@ class AmadeusClient:
         try:
             token = await self._get_access_token()
 
-            # First, get city code from location name
-            # Then search for hotels
+            city_code = await self.get_city_code(location)
+            if not city_code:
+                logger.warning(f"Could not find city code for: {location}")
+                return []
+
+            hotel_ids = await self._get_hotel_ids_by_city(token, city_code)
+
+            if not hotel_ids:
+                logger.warning(f"No hotels found in city: {city_code}")
+                return []
+
+            # TODO: add currency to the params and send with budget constraint
             params = {
-                "cityCode": location,  # TODO: Convert city name to code
+                "hotelIds": hotel_ids[:hotel_limit],
                 "checkInDate": check_in.strftime("%Y-%m-%d"),
                 "checkOutDate": check_out.strftime("%Y-%m-%d"),
-                "adults": guests,
+                "adults": guests
             }
 
             if budget:
@@ -134,7 +178,7 @@ class AmadeusClient:
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.base_url}/shopping/hotel-offers",
+                    f"{self.base_url_v3}/shopping/hotel-offers",
                     params=params,
                     headers={"Authorization": f"Bearer {token}"},
                     timeout=30.0,
@@ -144,4 +188,32 @@ class AmadeusClient:
 
         except Exception as e:
             logger.error(f"Error searching hotels: {str(e)}")
+            return []
+
+    async def _get_hotel_ids_by_city(self, token: str, city_code: str, radius: int = 5) -> List[str]:
+        """
+        Get hotel IDs for a given city code
+
+        Returns:
+            List of hotel IDs
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url_v3}/reference-data/locations/hotels/by-city",
+                    params={
+                        "cityCode": city_code,
+                        "radius": radius
+                    },
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=30.0,
+                )
+
+                response.raise_for_status()
+                data = response.json().get("data", [])
+
+                return [hotel["hotelId"] for hotel in data]
+
+        except Exception as e:
+            logger.error(f"Error getting hotel IDs for city {city_code}: {str(e)}")
             return []
