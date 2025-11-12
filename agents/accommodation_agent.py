@@ -35,6 +35,9 @@ class AccommodationAgent(BaseAgent):
 
         try:
             # TODO: Implement actual accommodation search
+            # TODO: Need to extract preferences given the amadeus's offered amenities for each hotel
+            #       would be an agentic operation using user intent. Currently everything is searched
+
             accommodations = await self.amadeus_client.search_hotels(
                 location=context["destination"],
                 check_in=context["start_date"],

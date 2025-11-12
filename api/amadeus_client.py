@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from utils.config import settings
 import logging
+from models.internal.amadeus_hotel import AmadeusHotelOffer, parse_hotel_offer
 
 logger = logging.getLogger(__name__)
 
@@ -133,10 +134,10 @@ class AmadeusClient:
         guests: int = 1,
         budget: Optional[float] = None,
         hotel_limit: int = 20
-    ) -> List[Dict[str, Any]]:
+    ) -> List[AmadeusHotelOffer]:
         """
         Search for hotels using two-step process:
-        1. Convert city name to IATA code (if needed)
+        1. Convert city name to IATA code
         2. Search hotels by city to get hotel IDs
         3. Get offers for those hotel IDs
 
@@ -149,7 +150,7 @@ class AmadeusClient:
             hotel_limit: number of hotels returned
 
         Returns:
-            List of hotel offers
+            List of parsed hotel offers
         """
         try:
             token = await self._get_access_token()
@@ -166,15 +167,13 @@ class AmadeusClient:
                 return []
 
             # TODO: add currency to the params and send with budget constraint
+            # TODO: We can search by preferences and amenities
             params = {
                 "hotelIds": hotel_ids[:hotel_limit],
                 "checkInDate": check_in.strftime("%Y-%m-%d"),
                 "checkOutDate": check_out.strftime("%Y-%m-%d"),
                 "adults": guests
             }
-
-            if budget:
-                params["priceRange"] = f"0-{int(budget)}"
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(
@@ -184,7 +183,18 @@ class AmadeusClient:
                     timeout=30.0,
                 )
                 response.raise_for_status()
-                return response.json().get("data", [])
+                data = response.json().get("data", [])
+
+                parsed_offers = []
+                for hotel_offer_json in data:
+                    try:
+                        parsed_offer = parse_hotel_offer(hotel_offer_json)
+                        parsed_offers.append(parsed_offer)
+                    except ValueError as e:
+                        logger.warning(f"Failed to parse hotel offer: {str(e)}")
+                        continue
+
+                return parsed_offers
 
         except Exception as e:
             logger.error(f"Error searching hotels: {str(e)}")
