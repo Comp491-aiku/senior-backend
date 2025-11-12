@@ -1,10 +1,10 @@
 """
 Accommodation Agent - Handles accommodation search and recommendations
 """
-from typing import Any, Dict
+from typing import Any, Dict, List
 from .base_agent import BaseAgent
 from api.amadeus_client import AmadeusClient
-
+from models.internal.amadeus_hotel import AmadeusHotelOffer
 
 class AccommodationAgent(BaseAgent):
     """
@@ -47,7 +47,7 @@ class AccommodationAgent(BaseAgent):
             )
 
             # Filter and rank based on preferences
-            recommended = self._rank_accommodations(accommodations, context)
+            recommended = self._rank_accommodations(accommodations, context)[0]
 
             return {
                 "options": recommended,
@@ -58,14 +58,18 @@ class AccommodationAgent(BaseAgent):
             self.log_error(f"Error searching accommodations: {str(e)}")
             return {"options": [], "total_cost": 0.0}
 
-    def _rank_accommodations(self, accommodations: list, context: Dict[str, Any]) -> list:
+    def _rank_accommodations(
+        self, accommodations: List[AmadeusHotelOffer], context: Dict[str, Any]
+    ) -> list:
         """
-        Rank accommodations based on rating, budget fit, and preferences
+        Rank accommodations based on price, location, cancellation policy, and preferences
 
-        Simple scoring
-        - 40% rating
-        - 40% budget fit
-        - 20% preference
+        Scoring breakdown:
+        - 50% price fit (within budget)
+        - 30% location quality (has coordinates)
+        - 20% cancellation policy flexibility
+        - 10% room quality (description, estimated type)
+        # TODO: based on preference options rework on scoring
         """
         if not accommodations:
             return []
@@ -77,74 +81,83 @@ class AccommodationAgent(BaseAgent):
         #       does not specify intents for accommodations, which probably would make it
         #       useless for this case. Additional call to anthropic for agent specific context refinement?
 
-        # TODO: Adjust preferences, this is a blueprint
-        preferred_amenities = preferences.get("amenities", [])
-        preferred_type = preferences.get("type", "").lower()
+        preferred_room_type = preferences.get("room_type", "").lower()
 
         scored_accommodations = []
 
         for accommodation in accommodations:
             try:
-                # Extract data
-                offers = accommodation.get("offers", [])
-                if not offers:
+                if not accommodation.available or not accommodation.offers:
                     continue
 
-                offer = offers[0]
-                price = float(offer.get("price", {}).get("total", 0))
-                hotel = accommodation.get("hotel", {})
-                rating = hotel.get("rating", 0)
-                hotel_amenities = hotel.get("amenities", [])
-                hotel_type = hotel.get("type", "").lower()
+                # Using first offer for scoring
+                offer = accommodation.offers[0]
+                price = float(offer.price.total)
+                hotel = accommodation.hotel
 
-                score = 0
+                score = 0.0
 
-                # 1. Rating score (0-40 points)
-                if rating:
-                    score += (rating / 5.0) * 40
-
-                # 2. Budget score (0-40 points)
                 if budget and price > 0:
+                    price_ratio = price / budget
                     if price <= budget:
-                        # Within budget - higher score for better value
-                        score += 40 * (1 - price / budget)
+                        score += 30 + (1 - price_ratio) * 20
                     else:
-                        # Over budget - penalty
-                        score -= (price - budget) / budget * 20
+                        score += max(0, 30 * (2 - price_ratio))
+                else:
+                    score += 20
 
-                # 3. Preference score (0-20 points)
-                pref_score = 0
+                if hotel.latitude is not None and hotel.longitude is not None:
+                    # coordinates good mapping and navigation
+                    score += 30
+                else:
+                    score += 15
 
-                # Check amenities match (0-10 points)
-                if preferred_amenities and hotel_amenities:
-                    matches = sum(
-                        1 for pref in preferred_amenities
-                        if any(pref.lower() in amenity.lower() for amenity in hotel_amenities)
-                    )
-                    pref_score += (matches / len(preferred_amenities)) * 10
+                if offer.policies and offer.policies.cancellation:
+                    cancellation = offer.policies.cancellation
+                    if cancellation.type:
+                        cancel_type = cancellation.type.upper()
+                        if "FULL_REFUND" in cancel_type:
+                            score += 20
+                        elif "REFUNDABLE" in cancel_type:
+                            score += 15
+                        elif "PARTIAL_REFUND" in cancel_type:
+                            score += 10
+                        else:
+                            score += 5
+                    else:
+                        score += 10
+                else:
+                    score += 0
 
-                # Check type match (0-10 points)
-                if preferred_type and hotel_type:
-                    if preferred_type in hotel_type:
-                        pref_score += 10
+                room_score = 0.0
 
-                score += pref_score
+                if offer.room.description:
+                    room_score += 3
 
-                accommodation["score"] = round(score, 2)
-                scored_accommodations.append(accommodation)
+                if offer.room.typeEstimated:
+                    room_score += 2
+                    type_est = offer.room.typeEstimated
+
+                    if preferred_room_type:
+                        if type_est.category and preferred_room_type in type_est.category.lower():
+                            room_score += 3
+                        elif type_est.bedType and preferred_room_type in type_est.bedType.lower():
+                            room_score += 2
+
+                score += room_score
+
+                scored_accommodations.append((score, accommodation))
 
             except Exception as e:
-                self.log_error(f"Error scoring accommodation: {str(e)}")
+                self.log_error(f"Error scoring accommodation {accommodation.hotel.hotelId}: {str(e)}")
                 continue
 
-        # Sort by score descending and return top 10
-        scored_accommodations.sort(key=lambda x: x.get("score", 0), reverse=True)
-        return scored_accommodations[:10]
+        scored_accommodations.sort(key=lambda x: x[0], reverse=True)
+        return [acc for _, acc in scored_accommodations[:10]]
 
-    def _calculate_accommodation_cost(self, accommodations: list) -> float:
+    def _calculate_accommodation_cost(self, accommodation: AmadeusHotelOffer) -> float:
         """Calculate total accommodation cost"""
-        # TODO: Implement cost calculation
-        return 0.0
+        return float(accommodation.offers[0].price.total)
 
     async def find_alternatives(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -160,6 +173,7 @@ class AccommodationAgent(BaseAgent):
 
         try:
             # TODO: Implement alternative accommodation search
+            #       Based on what?
             return {
                 "accommodations": [
                     {
