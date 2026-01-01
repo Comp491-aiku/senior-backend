@@ -20,7 +20,8 @@ class AmadeusClient:
     def __init__(self):
         self.api_key = settings.AMADEUS_API_KEY
         self.api_secret = settings.AMADEUS_API_SECRET
-        self.base_url = "https://test.api.amadeus.com/v2"
+        self.base_url = "https://test.api.amadeus.com/v1"
+        self.base_url_v2 = "https://test.api.amadeus.com/v2"
         self.base_url_v3 = "https://test.api.amadeus.com/v3"
         self.access_token: Optional[str] = None
 
@@ -59,8 +60,8 @@ class AmadeusClient:
         Search for flights
 
         Args:
-            origin: Origin airport code (IATA)
-            destination: Destination airport code (IATA)
+            origin: Origin city name or airport code (e.g., "New York" or "JFK")
+            destination: Destination city name or airport code (e.g., "Rome" or "FCO")
             departure_date: Departure date
             return_date: Return date (optional for one-way)
             passengers: Number of passengers
@@ -72,9 +73,25 @@ class AmadeusClient:
         try:
             token = await self._get_access_token()
 
+            # Convert city names to airport codes if needed (3-letter codes are already IATA)
+            origin_code = origin
+            destination_code = destination
+
+            if origin and len(origin) != 3:
+                origin_code = await self.get_airport_code(origin)
+                if not origin_code:
+                    logger.warning(f"Could not find airport code for origin: {origin}")
+                    return []
+
+            if destination and len(destination) != 3:
+                destination_code = await self.get_airport_code(destination)
+                if not destination_code:
+                    logger.warning(f"Could not find airport code for destination: {destination}")
+                    return []
+
             params = {
-                "originLocationCode": origin,
-                "destinationLocationCode": destination,
+                "originLocationCode": origin_code,
+                "destinationLocationCode": destination_code,
                 "departureDate": departure_date.strftime("%Y-%m-%d"),
                 "adults": passengers,
                 "travelClass": travel_class,
@@ -86,7 +103,7 @@ class AmadeusClient:
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.base_url}/shopping/flight-offers",
+                    f"{self.base_url_v2}/shopping/flight-offers",
                     params=params,
                     headers={"Authorization": f"Bearer {token}"},
                     timeout=30.0,
@@ -98,19 +115,27 @@ class AmadeusClient:
             logger.error(f"Error searching flights: {str(e)}")
             return []
 
-    async def get_city_code(self, city_name: str) -> Optional[str]:
+    async def get_location_code(self, name: str, sub_type: str = "CITY") -> Optional[str]:
         """
-        Convert city name to IATA city code
+        Convert location name to IATA code using Amadeus Location API
+
+        Args:
+            name: City or airport name
+            sub_type: "CITY" for city codes (ROM), "AIRPORT" for airport codes (FCO)
+
+        Returns:
+            IATA code or None
         """
         try:
             token = await self._get_access_token()
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.base_url_v3}/reference-data/locations/cities",
+                    "https://test.api.amadeus.com/v1/reference-data/locations",
                     params={
-                        "keyword": city_name,
-                        "max": 1,
+                        "keyword": name,
+                        "subType": sub_type,
+                        "page[limit]": 1,
                     },
                     headers={"Authorization": f"Bearer {token}"},
                     timeout=30.0,
@@ -123,8 +148,22 @@ class AmadeusClient:
                 return None
 
         except Exception as e:
-            logger.error(f"Error getting city code for {city_name}: {str(e)}")
+            logger.error(f"Error getting {sub_type} code for {name}: {str(e)}")
             return None
+
+    async def get_city_code(self, city_name: str) -> Optional[str]:
+        """
+        Convert city name to IATA city code (e.g., Rome -> ROM)
+        Used for hotel searches
+        """
+        return await self.get_location_code(city_name, "CITY")
+
+    async def get_airport_code(self, city_name: str) -> Optional[str]:
+        """
+        Convert city name to IATA airport code (e.g., Rome -> FCO)
+        Used for flight searches
+        """
+        return await self.get_location_code(city_name, "AIRPORT")
 
     async def search_hotels(
         self,
@@ -210,7 +249,7 @@ class AmadeusClient:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{self.base_url_v3}/reference-data/locations/hotels/by-city",
+                    f"{self.base_url}/reference-data/locations/hotels/by-city",
                     params={
                         "cityCode": city_code,
                         "radius": radius

@@ -62,12 +62,22 @@ class OrchestratorAgent(BaseAgent):
             # Execute agents based on plan
             agent_results = await self._execute_agents(execution_plan, enriched_context)
 
+            # Build structured itinerary from agent results
+            itinerary = self._build_itinerary(
+                context=enriched_context,
+                flights=agent_results.get("flight", {}),
+                accommodations=agent_results.get("accommodation", {}),
+                activities=agent_results.get("activity", {}),
+                weather=agent_results.get("weather", {}),
+            )
+
             # Generate AI response
-            ai_response = await self._generate_response(intent, agent_results, context)
+            ai_response = await self._generate_response(intent, agent_results, enriched_context)
 
             # Build final result
             result = {
                 "response": ai_response,
+                "itinerary": itinerary,
                 "agent_activity": execution_plan.get("agent_activity", []),
                 "trip_id": context.get("trip_id"),
                 "intent": intent,
@@ -211,9 +221,9 @@ Return ONLY valid JSON, no markdown, no explanation."""
         intent = {
             "action": "plan_trip",  # default action
             "summary": message[:100],
-            "needs_flights": "flight" in message_lower or "fly" in message_lower,
-            "needs_accommodation": "hotel" in message_lower or "stay" in message_lower or "accommodation" in message_lower,
-            "needs_activities": "activity" in message_lower or "things to do" in message_lower or "visit" in message_lower,
+            "needs_flights": True,  # Default to True for trip planning
+            "needs_accommodation": True,  # Default to True for trip planning
+            "needs_activities": True,  # Default to True for trip planning
             "planning_mode": context.get("planning_mode", "plan")
         }
 
@@ -425,7 +435,7 @@ Return ONLY valid JSON, no markdown, no explanation."""
     async def _generate_response(self, intent: Dict[str, Any], agent_results: Dict[str, Any], context: Dict[str, Any]) -> str:
         """Generate natural language response based on agent results"""
 
-        # Simple response for now
+        '''
         mode = context.get("planning_mode", "plan")
 
         if mode == "plan":
@@ -434,6 +444,58 @@ Return ONLY valid JSON, no markdown, no explanation."""
             return "I've found the best options and I'm ready to book them automatically if you approve. Here's what I found..."
         else:  # edit mode
             return "I've found alternative options based on your request. Here are some different choices you might like..."
+        '''
+
+        destination = context.get("destination", "your destination")
+        parts = []
+
+        # Flight summary
+        flight_data = agent_results.get("flight", {})
+        outbound_flights = flight_data.get("outbound", [])
+        if outbound_flights:
+            best_flight = outbound_flights[0]
+            price = best_flight.get("price", {})
+            total = price.get("grandTotal", "N/A")
+            currency = price.get("currency", "USD")
+            parts.append(f"Found {len(outbound_flights)} flight options. Best price: {currency} {total}")
+        else:
+            parts.append("No flights found for your dates")
+
+        # Accommodation summary
+        accommodation_data = agent_results.get("accommodation", {})
+        hotel_option = accommodation_data.get("options")
+        if hotel_option:
+            hotel_name = hotel_option.hotel.name if hasattr(hotel_option, 'hotel') else "Hotel"
+            if hasattr(hotel_option, 'offers') and hotel_option.offers:
+                offer = hotel_option.offers[0]
+                hotel_total = offer.price.total
+                hotel_currency = offer.price.currency
+                parts.append(f"Top hotel: {hotel_name} at {hotel_currency} {hotel_total}")
+            else:
+                parts.append(f"Top hotel: {hotel_name}")
+        else:
+            parts.append("No accommodations found for your dates")
+
+        # Weather summary
+        weather_data = agent_results.get("weather", {})
+        forecasts = weather_data.get("daily_forecast", [])
+        if forecasts:
+            avg_temps = [f.temperature.avg or f.temperature.max for f in forecasts if hasattr(f, 'temperature')]
+            avg_temp = sum(avg_temps) / len(avg_temps) if avg_temps else 0
+            unit = forecasts[0].temperature.unit[0].upper() if hasattr(forecasts[0], 'temperature') else "C"
+            parts.append(f"Weather forecast: Average {avg_temp:.0f}°{unit}")
+
+        # Activity summary
+        activity_data = agent_results.get("activity", {})
+        total_activities = activity_data.get("total_activities", 0)
+        if total_activities > 0:
+            parts.append(f"Found {total_activities} activities and attractions")
+
+        summary = f"Here's what I found for your trip to {destination}:\n\n"
+        summary += "\n".join(f"• {part}\n" for part in parts)
+        summary += "\n\nWould you like to see the details or make any changes?"
+
+        return summary
 
     def _build_itinerary(
         self,
@@ -464,6 +526,22 @@ Return ONLY valid JSON, no markdown, no explanation."""
         self, flights: Dict, accommodations: Dict, activities: Dict
     ) -> float:
         """Calculate the total cost of the trip"""
+        #TODO: need to update for models
         total = 0.0
-        # TODO: Implement actual cost calculation
+
+        # Flight cost
+        flight_cost = flights.get("total_cost", 0)
+        if flight_cost:
+            total += float(flight_cost)
+
+        # Accommodation cost
+        accom_cost = accommodations.get("total_cost", 0)
+        if accom_cost:
+            total += float(accom_cost)
+
+        # Activity cost
+        activity_cost = activities.get("estimated_cost", 0)
+        if activity_cost:
+            total += float(activity_cost)
+
         return total
