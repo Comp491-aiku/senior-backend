@@ -147,6 +147,7 @@ class OrchestratorAgent(BaseAgent):
         import json
 
         user_message = context.get("message", "")
+        # TODO: Remove after flow is working and we can test using claude to extract intent
         return self._simple_parse_intent(user_message, context)
         # If AI client is available, use Claude to parse intent
         if not self.ai_client:
