@@ -13,17 +13,17 @@ class TemperatureData(BaseModel):
     min: float
     max: float
     unit: str
-    avg: Optional[float]
-    morning: Optional[float]
-    afternoon: Optional[float]
-    evening: Optional[float]
-    night: Optional[float]
+    avg: Optional[float] = None
+    morning: Optional[float] = None
+    afternoon: Optional[float] = None
+    evening: Optional[float] = None
+    night: Optional[float] = None
 
 
 class PrecipitationData(BaseModel):
     total: float
-    rain: Optional[float]
-    snow: Optional[float]
+    rain: Optional[float] = None
+    snow: Optional[float] = None
 
 
 class WeatherForecast(BaseModel):
@@ -32,9 +32,9 @@ class WeatherForecast(BaseModel):
     humidity: float
     wind_speed: float
     precipitation: PrecipitationData
-    condition: Optional[str]
-    description: Optional[str]
-    icon: Optional[str]
-    wind_direction: Optional[float]
-    cloudiness: Optional[float]
-    pressure: Optional[float]
+    condition: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    wind_direction: Optional[float] = None
+    cloudiness: Optional[float] = None
+    pressure: Optional[float] = None

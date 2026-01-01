@@ -53,11 +53,14 @@ class OrchestratorAgent(BaseAgent):
             # Parse user intent from natural language
             intent = await self._parse_user_intent(context)
 
+            # Enrich context with parsed intent for agents
+            enriched_context = self._enrich_context(context, intent)
+
             # Decide execution strategy (parallel vs sequential)
             execution_plan = self._create_execution_plan(intent)
 
             # Execute agents based on plan
-            agent_results = await self._execute_agents(execution_plan, context)
+            agent_results = await self._execute_agents(execution_plan, enriched_context)
 
             # Generate AI response
             ai_response = await self._generate_response(intent, agent_results, context)
@@ -141,29 +144,59 @@ class OrchestratorAgent(BaseAgent):
         Returns:
             Intent dictionary with destination, dates, preferences, etc.
         """
-        user_message = context.get("message", "")
+        import json
 
+        user_message = context.get("message", "")
+        return self._simple_parse_intent(user_message, context)
         # If AI client is available, use Claude to parse intent
+        if not self.ai_client:
+            self.log_info("Claude AI client not configured, using fallback parser")
+
         if self.ai_client:
             try:
-                prompt = f"""Parse this travel planning request and extract structured information:
+                prompt = f"""Parse this travel planning request and extract structured information.
 
 User message: "{user_message}"
 
-Extract and return JSON with:
-- destination: Where they want to go
-- duration: How many days (if mentioned)
-- budget: Budget amount and currency (if mentioned)
-- travelers: Number of people (if mentioned)
-- preferences: List of preferences (luxury, budget, adventure, etc.)
-- action: What they want to do (plan_trip, find_alternative, edit_trip, etc.)
-- summary: One sentence summary of their request
+Extract and return a JSON object with these fields:
+- destination: The city or place they want to visit (string, required)
+- origin: Where they're traveling from if mentioned (string or null)
+- duration: Number of days for the trip (integer or null)
+- budget: Budget amount in USD (number or null)
+- travelers: Number of people traveling (integer, default 1)
+- preferences: List of travel preferences like ["luxury", "adventure", "budget-friendly", "family-friendly"] (array)
+- action: One of "plan_trip", "find_alternative", or "edit_trip"
+- needs_flights: Whether they need flight booking (boolean)
+- needs_accommodation: Whether they need hotel/accommodation (boolean)
+- needs_activities: Whether they want activity recommendations (boolean)
+- summary: Brief one-sentence summary of their request
 
-Return only valid JSON, no other text."""
+Return ONLY valid JSON, no markdown, no explanation."""
 
-                # Note: This is a simplified version. In production, use proper Claude API call
-                # For now, return a simple parsed intent
-                pass
+                response = self.ai_client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=500,
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+
+                response_text = response.content[0].text.strip()
+
+                if response_text.startswith("```"):
+                    response_text = response_text.split("```")[1]
+                    if response_text.startswith("json"):
+                        response_text = response_text[4:]
+                    response_text = response_text.strip()
+
+                intent = json.loads(response_text)
+                intent["planning_mode"] = context.get("planning_mode", "plan")
+
+                self.log_info(f"Parsed intent with Claude: {intent.get('summary', 'No summary')}")
+                return intent
+
+            except json.JSONDecodeError as e:
+                self.log_error(f"Failed to parse Claude response as JSON: {str(e)}")
             except Exception as e:
                 self.log_error(f"Error parsing intent with AI: {str(e)}")
 
@@ -183,6 +216,27 @@ Return only valid JSON, no other text."""
             "planning_mode": context.get("planning_mode", "plan")
         }
 
+        # Extract destination (look for "to <city>" pattern)
+        import re
+        destination_match = re.search(r'\bto\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)', message)
+        if destination_match:
+            intent["destination"] = destination_match.group(1)
+
+        # Extract number of days
+        days_match = re.search(r'(\d+)\s*(?:days?|nights?)', message_lower)
+        if days_match:
+            intent["duration"] = int(days_match.group(1))
+
+        # Extract number of travelers
+        travelers_match = re.search(r'(\d+)\s*(?:people|persons?|travelers?|guests?)', message_lower)
+        if travelers_match:
+            intent["travelers"] = int(travelers_match.group(1))
+
+        # Extract budget
+        budget_match = re.search(r'\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:budget|dollars?|usd)?', message_lower)
+        if budget_match:
+            intent["budget"] = float(budget_match.group(1).replace(',', ''))
+
         # Check for alternative finding
         if any(word in message_lower for word in ["alternative", "different", "other", "cheaper", "better"]):
             intent["action"] = "find_alternative"
@@ -192,6 +246,28 @@ Return only valid JSON, no other text."""
             intent["action"] = "edit_trip"
 
         return intent
+
+    def _enrich_context(self, context: Dict[str, Any], intent: Dict[str, Any]) -> Dict[str, Any]:
+        """Enrich context with parsed intent values for agents"""
+        from datetime import datetime, timedelta
+
+        enriched = context.copy()
+
+        enriched["destination"] = intent.get("destination")
+
+        # Add dates (default to next week if not specified)
+        if "start_date" not in enriched:
+            enriched["start_date"] = datetime.now()
+        if "end_date" not in enriched:
+            duration = intent.get("duration") or 5
+            enriched["end_date"] = enriched["start_date"] + timedelta(days=duration)
+
+        enriched["travelers"] = intent.get("travelers") or context.get("travelers") or 1
+        enriched["budget"] = intent.get("budget") or context.get("budget") or 2000
+        enriched["preferences"] = context.get("preferences") or {}
+        enriched["origin"] = intent.get("origin") or context.get("origin") or "JFK"
+
+        return enriched
 
     def _create_execution_plan(self, intent: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -233,11 +309,91 @@ Return only valid JSON, no other text."""
         return plan
 
     async def _execute_agents(self, execution_plan: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute agents based on execution plan"""
         results = {}
+        completed = set()
 
-        # For now, execute a simple version
-        # In production, implement full parallel/sequential execution based on plan
+        agent_map = {
+            "weather": self.weather_agent,
+            "flight": self.flight_agent,
+            "accommodation": self.accommodation_agent,
+            "activity": self.activity_agent,
+        }
+
+        all_agents = []
+        for agent_entry in execution_plan.get("agents", []):
+            all_agents.append({
+                "name": agent_entry["agent"],
+                "dependencies": agent_entry.get("dependencies", []),
+                "parallel": False
+            })
+
+        for group in execution_plan.get("parallel_groups", []):
+            for agent_name in group.get("agents", []):
+                all_agents.append({
+                    "name": agent_name,
+                    "dependencies": group.get("dependencies", []),
+                    "parallel": True,
+                    "group_agents": group.get("agents", [])
+                })
+
+        pending = list(all_agents)
+        while pending:
+            ready = [a for a in pending if all(dep in completed for dep in a["dependencies"])]
+
+            if not ready:
+                self.log_error("Circular dependency or missing agent detected")
+                break
+
+            parallel_batch = []
+            sequential = []
+            processed_groups = set()
+
+            for agent in ready:
+                if agent["parallel"]:
+                    group_key = tuple(sorted(agent.get("group_agents", [])))
+                    if group_key not in processed_groups:
+                        parallel_batch.extend([a for a in ready if a.get("group_agents") and tuple(sorted(a["group_agents"])) == group_key])
+                        processed_groups.add(group_key)
+                else:
+                    sequential.append(agent)
+
+            for agent_entry in sequential:
+                agent_name = agent_entry["name"]
+                if agent_name in agent_map:
+                    self.log_info(f"Executing {agent_name} agent")
+                    try:
+                        results[agent_name] = await agent_map[agent_name].execute(context)
+                    except Exception as e:
+                        self.log_error(f"Error executing {agent_name}: {str(e)}")
+                        results[agent_name] = {"error": str(e)}
+                    completed.add(agent_name)
+                pending = [a for a in pending if a["name"] != agent_name]
+
+            if parallel_batch:
+                unique_agents = {a["name"]: a for a in parallel_batch}
+                tasks = []
+                agent_names = []
+
+                for agent_name in unique_agents:
+                    if agent_name in agent_map:
+                        self.log_info(f"Executing {agent_name} agent (parallel)")
+                        tasks.append(agent_map[agent_name].execute(context))
+                        agent_names.append(agent_name)
+
+                if tasks:
+                    try:
+                        task_results = await asyncio.gather(*tasks, return_exceptions=True)
+                        for name, result in zip(agent_names, task_results):
+                            if isinstance(result, Exception):
+                                self.log_error(f"Error executing {name}: {str(result)}")
+                                results[name] = {"error": str(result)}
+                            else:
+                                results[name] = result
+                            completed.add(name)
+                    except Exception as e:
+                        self.log_error(f"Error in parallel execution: {str(e)}")
+
+                pending = [a for a in pending if a["name"] not in unique_agents]
 
         return results
 
