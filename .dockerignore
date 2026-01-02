@@ -43,10 +43,18 @@ Thumbs.db
 .gitignore
 
 # Testing
+tests/
 .pytest_cache/
 .coverage
 htmlcov/
+pytest.ini
+conftest.py
 
 # Documentation
 docs/
 *.md
+
+# Local env files (secrets should come from Secret Manager)
+.env
+.env.*
+!.env.example
