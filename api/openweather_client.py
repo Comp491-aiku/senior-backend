@@ -52,13 +52,9 @@ class OpenWeatherClient:
             if not coordinates:
                 return []
 
-            now = datetime.now()
-            days_until_trip = (start_date.replace(tzinfo=None) - now).days
-
-            if days_until_trip < 5:
-                return await self._get_forecast5(coordinates, start_date, end_date, units)
-            else:
-                return await self._get_day_summary(coordinates, start_date, end_date, units)
+            # Always use free 2.5 API for now (provides up to 5 days forecast)
+            # TODO: Switch to day_summary (3.0) when paid plan is available
+            return await self._get_forecast5(coordinates, start_date, end_date, units)
 
         except Exception as e:
             logger.error(f"Error getting weather forecast: {str(e)}")

@@ -37,11 +37,11 @@ class FlightAgent(BaseAgent):
         try:
             # TODO: Implement actual flight search using Amadeus API
             flights = await self.amadeus_client.search_flights(
-                origin=context.get("origin", "NYC"),
-                destination=context["destination"],
+                origin=context.get("origin") or "JFK",
+                destination=context.get("destination"),
                 departure_date=context["start_date"],
-                return_date=context["end_date"],
-                passengers=context["travelers"],
+                return_date=context.get("end_date"),
+                passengers=context.get("travelers", 1),
             )
 
             # Filter and rank flights based on preferences and budget
@@ -58,13 +58,27 @@ class FlightAgent(BaseAgent):
             return {"outbound": [], "return": [], "total_cost": 0.0}
 
     def _rank_flights(self, flights: list, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Rank flights based on preferences and budget"""
-        # TODO: Implement smart ranking algorithm
-        return {"outbound": [], "return": []}
+        """Rank flights by price (lowest first)"""
+        if not flights:
+            return {"outbound": [], "return": []}
+
+        sorted_flights = sorted(
+            flights,
+            key=lambda f: float(f.get("price", {}).get("grandTotal", 999999))
+        )
+
+        top_flights = sorted_flights[:10]
+
+        return {
+            "outbound": top_flights,
+            "return": [],
+        }
 
     def _calculate_flight_cost(self, flights: Dict[str, Any]) -> float:
-        """Calculate total flight cost"""
-        # TODO: Implement cost calculation
+        """Calculate total flight cost from top ranked flight"""
+        outbound = flights.get("outbound", [])
+        if outbound:
+            return float(outbound[0].get("price", {}).get("grandTotal", 0))
         return 0.0
 
     async def find_alternatives(self, context: Dict[str, Any]) -> Dict[str, Any]:

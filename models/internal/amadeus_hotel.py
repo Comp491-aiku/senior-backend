@@ -41,7 +41,8 @@ class AmadeusPriceAverage(BaseModel):
 class AmadeusPriceChange(BaseModel):
     startDate: str
     endDate: str
-    total: str
+    total: Optional[str] = None
+    base: Optional[str] = None
 
 
 class AmadeusPriceVariations(BaseModel):
