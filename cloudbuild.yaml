@@ -1,0 +1,85 @@
+# Cloud Build configuration for AIKU Backend
+# Deploys to Google Cloud Run
+
+steps:
+  # Build the container image using Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/aiku/backend:$COMMIT_SHA'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/aiku/backend:latest'
+      - '.'
+
+  # Push the container image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '--all-tags', 'europe-west1-docker.pkg.dev/$PROJECT_ID/aiku/backend']
+
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'aiku-backend'
+      - '--image'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/aiku/backend:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--timeout'
+      - '300'
+      - '--concurrency'
+      - '80'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '10'
+      # Environment variables (non-sensitive)
+      - '--set-env-vars'
+      - 'APP_ENV=production,APP_DEBUG=false,LLM_MAX_ITERATIONS=25'
+      # External API URLs (non-sensitive)
+      - '--set-env-vars'
+      - 'WEATHER_AGENT_URL=https://weather-agent-seven.vercel.app'
+      - '--set-env-vars'
+      - 'FLIGHT_AGENT_URL=https://flight-agent.vercel.app'
+      - '--set-env-vars'
+      - 'HOTEL_AGENT_URL=https://hotel-agent-delta.vercel.app'
+      - '--set-env-vars'
+      - 'TRANSFER_AGENT_URL=https://transfer-agent.vercel.app'
+      - '--set-env-vars'
+      - 'ACTIVITIES_AGENT_URL=https://activities-agent.vercel.app'
+      - '--set-env-vars'
+      - 'EXCHANGE_AGENT_URL=https://exchange-agent.vercel.app'
+      - '--set-env-vars'
+      - 'UTILITY_AGENT_URL=https://utility-agent.vercel.app'
+      - '--set-env-vars'
+      - 'FLIGHTS_API_URL=https://fast-flights-api-1042410626896.europe-west1.run.app'
+      # Secrets from Secret Manager
+      - '--set-secrets'
+      - 'SUPABASE_URL=aiku-supabase-url:latest'
+      - '--set-secrets'
+      - 'SUPABASE_ANON_KEY=aiku-supabase-anon-key:latest'
+      - '--set-secrets'
+      - 'SUPABASE_SERVICE_ROLE_KEY=aiku-supabase-service-role-key:latest'
+      - '--set-secrets'
+      - 'ANTHROPIC_API_KEY=aiku-anthropic-api-key:latest'
+      - '--set-secrets'
+      - 'FLIGHTS_API_KEY=aiku-flights-api-key:latest'
+
+images:
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/aiku/backend:$COMMIT_SHA'
+  - 'europe-west1-docker.pkg.dev/$PROJECT_ID/aiku/backend:latest'
+
+# Timeout for the entire build
+timeout: '1200s'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
