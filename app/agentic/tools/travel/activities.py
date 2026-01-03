@@ -58,6 +58,10 @@ class SearchActivitiesTool(HttpTool):
                 "currency": {
                     "type": "string",
                     "description": "Currency for prices (default: USD)"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of activities to return (default: 20)"
                 }
             },
             "required": []
@@ -70,6 +74,7 @@ class SearchActivitiesTool(HttpTool):
         lng: Optional[float] = None,
         radius: int = 5,
         currency: str = "USD",
+        limit: int = 20,
         **kwargs,
     ) -> ToolResult:
         """Execute activities search request."""
@@ -81,5 +86,6 @@ class SearchActivitiesTool(HttpTool):
                 "lng": lng,
                 "radius": radius,
                 "currency": currency,
+                "max": limit,
             }
         )

@@ -61,6 +61,10 @@ class SearchHotelsTool(HttpTool):
                 "ratings": {
                     "type": "string",
                     "description": "Star ratings to filter, comma-separated (e.g., '4,5' for 4 and 5 star hotels)"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of hotels to return (default: 15)"
                 }
             },
             "required": ["city_code", "check_in_date", "check_out_date"]
@@ -74,6 +78,7 @@ class SearchHotelsTool(HttpTool):
         adults: int = 2,
         rooms: int = 1,
         ratings: Optional[str] = None,
+        limit: int = 15,
         **kwargs,
     ) -> ToolResult:
         """Execute hotel search request."""
@@ -86,6 +91,7 @@ class SearchHotelsTool(HttpTool):
                 "adults": adults,
                 "rooms": rooms,
                 "ratings": ratings,
+                "max": limit,
             }
         )
 
@@ -145,6 +151,10 @@ class GetHotelOffersTool(HttpTool):
                 "currency": {
                     "type": "string",
                     "description": "Currency for prices (default: USD)"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of hotel offers to return (default: 10)"
                 }
             },
             "required": ["check_in_date", "check_out_date"]
@@ -159,6 +169,7 @@ class GetHotelOffersTool(HttpTool):
         adults: int = 2,
         rooms: int = 1,
         currency: str = "USD",
+        limit: int = 10,
         **kwargs,
     ) -> ToolResult:
         """Execute hotel offers request."""
@@ -173,5 +184,6 @@ class GetHotelOffersTool(HttpTool):
                 "adults": adults,
                 "rooms": rooms,
                 "currency": currency,
+                "max": limit,
             }
         )

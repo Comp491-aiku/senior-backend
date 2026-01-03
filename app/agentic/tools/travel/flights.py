@@ -76,7 +76,7 @@ class SearchFlightsTool(HttpTool):
                     "type": "string",
                     "description": "Currency for prices (default: USD)"
                 },
-                "max": {
+                "limit": {
                     "type": "integer",
                     "description": "Maximum number of results (default: 10)"
                 }
@@ -95,7 +95,7 @@ class SearchFlightsTool(HttpTool):
         cabin: str = "ECONOMY",
         nonstop: bool = False,
         currency: str = "USD",
-        max: int = 10,
+        limit: int = 10,
         **kwargs,
     ) -> ToolResult:
         """Execute flight search request."""
@@ -111,7 +111,7 @@ class SearchFlightsTool(HttpTool):
                 "cabin": cabin,
                 "nonstop": nonstop,
                 "currency": currency,
-                "max": max,
+                "max": limit,
             }
         )
 
