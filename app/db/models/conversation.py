@@ -64,11 +64,11 @@ class ConversationService:
             .select("*")
             .eq("id", conversation_id)
             .eq("user_id", user_id)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
 
-        return result.data if result.data else None
+        return result.data[0] if result.data else None
 
     async def list_conversations(
         self,

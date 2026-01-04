@@ -139,12 +139,12 @@ class TodoService:
             .select("*")
             .eq("id", todo_id)
             .eq("conversation_id", conversation_id)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
 
         if result.data:
-            return await self._enrich_todo(result.data)
+            return await self._enrich_todo(result.data[0])
         return None
 
     async def update_todo(

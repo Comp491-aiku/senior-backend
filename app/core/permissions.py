@@ -83,7 +83,7 @@ async def check_conversation_access(
     # Get conversation data using admin client (bypass RLS)
     from app.db.supabase import get_supabase_admin_client
     client = get_supabase_admin_client()
-    result = client.table("conversations").select("*").eq("id", conversation_id).maybe_single().execute()
+    result = client.table("conversations").select("*").eq("id", conversation_id).limit(1).execute()
 
     if not result.data:
         raise HTTPException(
@@ -91,7 +91,7 @@ async def check_conversation_access(
             detail="Conversation not found",
         )
 
-    return result.data, permission
+    return result.data[0], permission
 
 
 async def get_conversation_with_permission(
@@ -135,7 +135,7 @@ async def require_owner(
         # Check if conversation exists at all
         from app.db.supabase import get_supabase_admin_client
         client = get_supabase_admin_client()
-        result = client.table("conversations").select("id").eq("id", conversation_id).maybe_single().execute()
+        result = client.table("conversations").select("id").eq("id", conversation_id).limit(1).execute()
 
         if result.data:
             raise HTTPException(

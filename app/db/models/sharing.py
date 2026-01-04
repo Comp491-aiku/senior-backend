@@ -122,11 +122,11 @@ class ShareService:
             .select("*")
             .eq("id", share_id)
             .eq("owner_id", owner_id)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
 
-        return result.data if result.data else None
+        return result.data[0] if result.data else None
 
     async def update_share(
         self,
@@ -296,14 +296,14 @@ class ShareService:
             self.client.table("conversation_shares")
             .select("*, conversations(*)")
             .eq("share_token", token)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
 
         if not result.data:
             return None
 
-        share = result.data
+        share = result.data[0]
 
         # Check expiration
         if share.get("token_expires_at"):
@@ -326,11 +326,11 @@ class ShareService:
             self.client.table("conversations")
             .select("user_id")
             .eq("id", conversation_id)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
 
-        if conv_result.data and conv_result.data["user_id"] == user_id:
+        if conv_result.data and conv_result.data[0]["user_id"] == user_id:
             return "owner"
 
         # Check shares
@@ -340,12 +340,12 @@ class ShareService:
             .eq("conversation_id", conversation_id)
             .eq("shared_with_id", user_id)
             .not_.is_("accepted_at", "null")
-            .maybe_single()
+            .limit(1)
             .execute()
         )
 
         if share_result.data:
-            return share_result.data["permission"]
+            return share_result.data[0]["permission"]
 
         return None
 
