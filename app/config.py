@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str
 
     # CORS - Allow localhost for dev, production domain, and wildcard
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001", "https://secoa.ai", "*"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001", "https://secoa.ai", "https://www.secoa.ai", "*"]
 
     # Frontend URL for share links (production default, override with FRONTEND_URL env var for local dev)
     FRONTEND_URL: str = "https://secoa.ai"
