@@ -61,7 +61,7 @@ class SearchActivitiesTool(HttpTool):
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Maximum number of activities to return (default: 20)"
+                    "description": "Maximum number of activities to return (default: 10, max: 15)"
                 }
             },
             "required": []
@@ -74,11 +74,14 @@ class SearchActivitiesTool(HttpTool):
         lng: Optional[float] = None,
         radius: int = 5,
         currency: str = "USD",
-        limit: int = 20,
+        limit: int = 10,
         **kwargs,
     ) -> ToolResult:
         """Execute activities search request."""
-        return await self.get(
+        # Cap limit to prevent token overflow (activities API doesn't respect max param)
+        limit = min(limit, 15)
+        
+        result = await self.get(
             "/api/activities",
             params={
                 "city": city,
@@ -89,3 +92,25 @@ class SearchActivitiesTool(HttpTool):
                 "max": limit,
             }
         )
+        
+        # CRITICAL: Truncate activities since the API returns 800+ regardless of max param
+        if result.success and result.data:
+            activities = result.data.get("activities", [])
+            if len(activities) > limit:
+                activities = activities[:limit]
+            
+            # Also truncate long descriptions to prevent token overflow
+            for activity in activities:
+                # Keep short_description, truncate long description
+                if "description" in activity and len(activity["description"]) > 500:
+                    activity["description"] = activity["description"][:500] + "..."
+                # Limit short_description too
+                if "short_description" in activity and len(activity["short_description"]) > 300:
+                    activity["short_description"] = activity["short_description"][:300] + "..."
+            
+            result.data["activities"] = activities
+            # Update output to reflect truncation
+            import json
+            result.output = json.dumps(result.data, indent=2, ensure_ascii=False)
+        
+        return result

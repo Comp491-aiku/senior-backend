@@ -62,6 +62,15 @@ IMPORTANT - Current Date Information:
 - For dates that have already passed this year, assume they mean next year ({current_year + 1})
 - Always use YYYY-MM-DD format when calling tools (e.g., {current_year}-02-15)
 
+CRITICAL - Tool Usage Requirements:
+- When users ask about FLIGHTS, you MUST use search_flights or search_flights_api tools
+- When users ask about HOTELS or accommodation, you MUST use search_hotels or get_hotel_offers tools
+- When users ask about WEATHER, you MUST use get_weather tool
+- When users ask about TRANSFERS, you MUST use search_transfers tool
+- When users ask about ACTIVITIES or things to do, you MUST use search_activities tool
+- NEVER provide generic information without using the appropriate tools first
+- ALWAYS call the relevant tools to get real-time, accurate data
+
 When helping users:
 - Ask clarifying questions when details are missing (dates, number of travelers, preferences)
 - Use the available tools to search for real-time travel information
@@ -474,6 +483,9 @@ class TravelAgentOrchestrator:
 
             # Check if we have tool calls
             if llm_response.tool_calls:
+                tool_names = [tc.name for tc in llm_response.tool_calls]
+                logger.info(f"LLM chose to use tools: {tool_names}")
+                
                 if emitter:
                     await emitter.emit_thinking(f"Using {len(llm_response.tool_calls)} tool(s)...")
 
@@ -503,6 +515,7 @@ class TravelAgentOrchestrator:
 
             # No tool calls - this is the final response
             final_response = llm_response.content or ""
+            logger.info(f"LLM provided final response without tool calls (length: {len(final_response)})")
             conversation.add_assistant_message(content=final_response)
 
             if emitter:

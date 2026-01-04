@@ -28,9 +28,10 @@ class SearchHotelsTool(HttpTool):
     @property
     def description(self) -> str:
         return (
-            "Search for hotels in a city with optional star rating filter. "
+            "**REQUIRED for hotel queries** Search for hotels in a city with optional star rating filter. "
             "Returns hotel list with names, ratings, locations, amenities, "
-            "and distance from center. Use this to find available hotels in a destination."
+            "and distance from center. ALWAYS use this tool when users ask about hotels, "
+            "accommodation, or where to stay in a destination."
         )
 
     @property
@@ -82,6 +83,9 @@ class SearchHotelsTool(HttpTool):
         **kwargs,
     ) -> ToolResult:
         """Execute hotel search request."""
+        # Cap limit to prevent token overflow
+        limit = min(limit, 20)
+        
         return await self.get(
             "/api/hotels",
             params={
@@ -113,10 +117,10 @@ class GetHotelOffersTool(HttpTool):
     @property
     def description(self) -> str:
         return (
-            "Get hotel room offers with prices for specific dates. Returns available rooms, "
-            "prices per night, total prices, cancellation policies, and meal options "
-            "(breakfast, half-board, etc.). Use this when users have selected dates "
-            "and want to see actual room prices."
+            "**REQUIRED for hotel pricing** Get hotel room offers with prices for specific dates. "
+            "Returns available rooms, prices per night, total prices, cancellation policies, "
+            "and meal options (breakfast, half-board, etc.). ALWAYS use this when users ask "
+            "about hotel prices, room rates, or want detailed booking information."
         )
 
     @property
@@ -173,6 +177,9 @@ class GetHotelOffersTool(HttpTool):
         **kwargs,
     ) -> ToolResult:
         """Execute hotel offers request."""
+        # Cap limit to prevent token overflow
+        limit = min(limit, 15)
+        
         # Hotels endpoint returns both hotel info and offers
         return await self.get(
             "/api/hotels",

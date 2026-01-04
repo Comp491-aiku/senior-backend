@@ -29,9 +29,10 @@ class SearchFlightsTool(HttpTool):
     @property
     def description(self) -> str:
         return (
-            "Search for flights between two airports. Returns flight options with prices, "
-            "schedules, airlines, duration, and number of stops. Can search one-way or "
-            "round-trip flights. Use this when users want to find and compare flight options."
+            "**REQUIRED for flight queries** Search for flights between two airports. "
+            "Returns flight options with prices, schedules, airlines, duration, and number of stops. "
+            "Can search one-way or round-trip flights. ALWAYS use this tool when users ask about "
+            "flights, airfare, or how to get from one place to another by air."
         )
 
     @property
@@ -99,6 +100,9 @@ class SearchFlightsTool(HttpTool):
         **kwargs,
     ) -> ToolResult:
         """Execute flight search request."""
+        # Cap limit to prevent token overflow
+        limit = min(limit, 20)
+        
         return await self.get(
             "/api/flights",
             params={
@@ -133,9 +137,10 @@ class AnalyzeFlightPricesTool(HttpTool):
     @property
     def description(self) -> str:
         return (
-            "Analyze flight prices for a route and get recommendations for the best "
-            "dates to fly. Returns price statistics (min, max, avg) and suggested dates "
-            "with potential savings percentage. Use this to help users find the cheapest days to travel."
+            "**REQUIRED for price analysis** Analyze flight prices for a route and get recommendations "
+            "for the best dates to fly. Returns price statistics (min, max, avg) and suggested dates "
+            "with potential savings percentage. ALWAYS use this when users ask about finding cheap flights, "
+            "best time to fly, or want to save money on airfare."
         )
 
     @property
