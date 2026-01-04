@@ -122,7 +122,7 @@ class ShareService:
             .select("*")
             .eq("id", share_id)
             .eq("owner_id", owner_id)
-            .single()
+            .maybe_single()
             .execute()
         )
 
@@ -296,7 +296,7 @@ class ShareService:
             self.client.table("conversation_shares")
             .select("*, conversations(*)")
             .eq("share_token", token)
-            .single()
+            .maybe_single()
             .execute()
         )
 
@@ -326,7 +326,7 @@ class ShareService:
             self.client.table("conversations")
             .select("user_id")
             .eq("id", conversation_id)
-            .single()
+            .maybe_single()
             .execute()
         )
 
@@ -340,7 +340,7 @@ class ShareService:
             .eq("conversation_id", conversation_id)
             .eq("shared_with_id", user_id)
             .not_.is_("accepted_at", "null")
-            .single()
+            .maybe_single()
             .execute()
         )
 
