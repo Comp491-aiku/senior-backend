@@ -163,6 +163,8 @@ async def get_messages(
     limit: int = Query(100, ge=1, le=500),
 ):
     """Get all messages in a conversation (owner or shared user)."""
+    import json
+
     # Use permission check to allow shared users
     await check_conversation_access(conversation_id, user, Permission.VIEW)
 
@@ -179,14 +181,25 @@ async def get_messages(
     )
     messages = result.data or []
 
+    # Parse tool_calls JSON strings
+    def parse_tool_calls(tool_calls):
+        if not tool_calls:
+            return None
+        if isinstance(tool_calls, str):
+            try:
+                return json.loads(tool_calls)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        return tool_calls
+
     return MessagesResponse(
         messages=[
             MessageResponse(
                 id=m["id"],
                 conversation_id=m["conversation_id"],
                 role=m["role"],
-                content=m["content"],
-                tool_calls=m.get("tool_calls"),
+                content=m.get("content"),
+                tool_calls=parse_tool_calls(m.get("tool_calls")),
                 tool_call_id=m.get("tool_call_id"),
                 created_at=_parse_datetime(m.get("created_at")),
             )

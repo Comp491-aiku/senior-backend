@@ -55,7 +55,7 @@ class MessageResponse(BaseModel):
     id: str
     conversation_id: str
     role: str
-    content: str
+    content: Optional[str] = None
     tool_calls: Optional[List[Dict[str, Any]]] = None
     tool_call_id: Optional[str] = None
     created_at: datetime
