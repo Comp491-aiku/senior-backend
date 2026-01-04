@@ -18,7 +18,7 @@ from app.api.schemas import (
     MessagesResponse,
     MessageResponse,
 )
-from app.db import get_conversation_service, get_message_service
+from app.db import get_conversation_service
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
@@ -162,16 +162,22 @@ async def get_messages(
     user: CurrentUser = Depends(get_current_user),
     limit: int = Query(100, ge=1, le=500),
 ):
-    """Get all messages in a conversation."""
-    conversation_service = get_conversation_service()
-    message_service = get_message_service()
+    """Get all messages in a conversation (owner or shared user)."""
+    # Use permission check to allow shared users
+    await check_conversation_access(conversation_id, user, Permission.VIEW)
 
-    # Check if conversation exists and belongs to user
-    conversation = await conversation_service.get_conversation(conversation_id, user.id)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-
-    messages = await message_service.get_messages(conversation_id, limit=limit)
+    # Get messages using admin client to bypass RLS
+    from app.db.supabase import get_supabase_admin_client
+    client = get_supabase_admin_client()
+    result = (
+        client.table("messages")
+        .select("*")
+        .eq("conversation_id", conversation_id)
+        .order("created_at", desc=False)
+        .limit(limit)
+        .execute()
+    )
+    messages = result.data or []
 
     return MessagesResponse(
         messages=[
