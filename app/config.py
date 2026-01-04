@@ -30,15 +30,18 @@ class Settings(BaseSettings):
     SUPABASE_ANON_KEY: str
     SUPABASE_SERVICE_ROLE_KEY: str
 
-    # CORS - For production, add frontend domain or use "*" for any origin
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001", "*"]
+    # CORS - Allow localhost for dev, production domain, and wildcard
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001", "https://secoa.ai", "*"]
+
+    # Frontend URL for share links (production default, override with FRONTEND_URL env var for local dev)
+    FRONTEND_URL: str = "https://secoa.ai"
 
     # LLM Configuration
     ANTHROPIC_API_KEY: str
     DEFAULT_LLM_MODEL: str = "claude-sonnet-4-5-20250929"
-    LLM_MAX_TOKENS: int = 4096
+    LLM_MAX_TOKENS: int = 16384
     LLM_TEMPERATURE: float = 0.7
-    LLM_MAX_ITERATIONS: int = 25
+    LLM_MAX_ITERATIONS: int = 50
 
     # Google Cloud (for FlightsAPI)
     GOOGLE_SERVICE_ACCOUNT_FILE: Optional[str] = "api-key.json"

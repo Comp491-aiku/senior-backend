@@ -82,3 +82,76 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     environment: str
+
+
+# Share Schemas
+class ShareCreate(BaseModel):
+    """Request to create a share."""
+    permission: str = Field(
+        default="view",
+        pattern="^(view|comment|edit)$",
+        description="Permission level: view, comment, or edit"
+    )
+    email: Optional[str] = Field(None, description="Email to invite")
+    create_link: bool = Field(False, description="Create a shareable link")
+    expires_in_days: Optional[int] = Field(
+        None,
+        ge=1,
+        le=365,
+        description="Link expiration in days"
+    )
+
+
+class ShareUpdate(BaseModel):
+    """Request to update a share."""
+    permission: str = Field(
+        ...,
+        pattern="^(view|comment|edit)$",
+        description="New permission level"
+    )
+
+
+class SharedUserResponse(BaseModel):
+    """User info in share response."""
+    id: str
+    email: Optional[str] = None
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+class ShareResponse(BaseModel):
+    """Share response."""
+    id: str
+    conversation_id: str
+    permission: str
+    shared_with_email: Optional[str] = None
+    share_link: Optional[str] = None
+    share_token: Optional[str] = None
+    accepted: bool
+    shared_user: Optional[SharedUserResponse] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ShareListResponse(BaseModel):
+    """List of shares."""
+    shares: List[ShareResponse]
+    total: int
+
+
+class SharedConversationResponse(BaseModel):
+    """Conversation shared with the user."""
+    id: str
+    conversation_id: str
+    permission: str
+    accepted: bool
+    conversation: ConversationResponse
+    owner: SharedUserResponse
+    created_at: datetime
+
+
+class SharedWithMeResponse(BaseModel):
+    """List of conversations shared with user."""
+    shared: List[SharedConversationResponse]
+    pending: List[SharedConversationResponse]
+    total: int
