@@ -1,7 +1,7 @@
 """
 Travel Agent Tools
 
-All tools for travel planning: weather, flights, hotels, transfers, activities, exchange, utility.
+All tools for travel planning: weather, flights, hotels, transfers, activities, exchange, utility, todos.
 """
 
 from app.agentic.tools.travel.weather import WeatherTool
@@ -25,6 +25,11 @@ from app.agentic.tools.travel.utility import (
     SearchIATAByCity,
     GetCurrentTimeTool,
     get_utility_tools,
+)
+from app.agentic.tools.travel.todos import (
+    CreateTodoTool,
+    CreateMultipleTodosTool,
+    get_todo_tools,
 )
 
 
@@ -52,6 +57,9 @@ def get_all_travel_tools():
         LookupIATACodeTool(),
         SearchIATAByCity(),
         GetCurrentTimeTool(),
+        # Todo tools
+        CreateTodoTool(),
+        CreateMultipleTodosTool(),
     ]
 
 
@@ -78,5 +86,9 @@ __all__ = [
     "SearchIATAByCity",
     "GetCurrentTimeTool",
     "get_utility_tools",
+    # Todo tools
+    "CreateTodoTool",
+    "CreateMultipleTodosTool",
+    "get_todo_tools",
     "get_all_travel_tools",
 ]

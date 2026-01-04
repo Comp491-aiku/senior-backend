@@ -58,7 +58,7 @@ async def chat_stream(
     existing_messages = await message_service.get_messages(conversation_id)
 
     # Create conversation history from existing messages
-    history = ConversationHistory(conversation_id=conversation_id)
+    history = ConversationHistory(conversation_id=conversation_id, user_id=user.id)
     for msg in existing_messages:
         if msg["role"] == "user":
             history.add_user_message(msg["content"])
@@ -137,7 +137,7 @@ async def chat(
     existing_messages = await message_service.get_messages(conversation_id)
 
     # Create conversation history
-    history = ConversationHistory(conversation_id=conversation_id)
+    history = ConversationHistory(conversation_id=conversation_id, user_id=user.id)
     for msg in existing_messages:
         if msg["role"] == "user":
             history.add_user_message(msg["content"])
