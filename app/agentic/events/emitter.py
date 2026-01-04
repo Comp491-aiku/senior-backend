@@ -32,6 +32,7 @@ class EventType(str, Enum):
     TRANSFERS = "transfers"       # Transfer options
     ACTIVITIES = "activities"     # Activities/tours
     EXCHANGE = "exchange"         # Currency exchange rates
+    TODOS = "todos"               # Todo items created
 
     # Flow events
     ITERATION = "iteration"
@@ -221,6 +222,19 @@ class EventEmitter:
         await self.emit(EventType.EXCHANGE, {
             "type": "exchange",
             "data": exchange_data,
+            "tool_execution_id": tool_execution_id,
+        })
+
+    async def emit_todos(
+        self,
+        todos: List[Dict[str, Any]],
+        tool_execution_id: Optional[str] = None,
+    ) -> None:
+        """Emit todo creation results for UI rendering."""
+        await self.emit(EventType.TODOS, {
+            "type": "todos",
+            "count": len(todos),
+            "items": todos,
             "tool_execution_id": tool_execution_id,
         })
 
