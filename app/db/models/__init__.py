@@ -16,6 +16,14 @@ from app.db.models.tool_execution import (
     get_tool_execution_service,
     get_travel_result_service,
 )
+from app.db.models.sharing import (
+    ShareService,
+    get_share_service,
+)
+from app.db.models.todos import (
+    TodoService,
+    get_todo_service,
+)
 
 __all__ = [
     "ConversationService",
@@ -26,4 +34,8 @@ __all__ = [
     "TravelResultService",
     "get_tool_execution_service",
     "get_travel_result_service",
+    "ShareService",
+    "get_share_service",
+    "TodoService",
+    "get_todo_service",
 ]
