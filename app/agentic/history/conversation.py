@@ -61,8 +61,14 @@ class ConversationHistory:
     and serialize/deserialize for storage.
     """
 
-    def __init__(self, conversation_id: str, messages: Optional[List[Message]] = None):
+    def __init__(
+        self,
+        conversation_id: str,
+        messages: Optional[List[Message]] = None,
+        user_id: Optional[str] = None,
+    ):
         self.conversation_id = conversation_id
+        self.user_id = user_id
         self.messages: List[Message] = messages or []
 
     def add_user_message(self, content: str) -> Message:
