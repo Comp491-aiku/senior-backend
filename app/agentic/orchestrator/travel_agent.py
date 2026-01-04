@@ -35,6 +35,8 @@ TOOL_RESULT_TYPES = {
     "get_exchange_rates": "exchange",
     "calculate_travel_budget": "exchange",
     "search_flights_api": "flights",
+    "create_todo": "todos",
+    "create_multiple_todos": "todos",
 }
 
 
@@ -51,6 +53,7 @@ def get_system_prompt() -> str:
 3. Providing weather information for destinations
 4. Helping with currency conversions and travel budgets
 5. Creating comprehensive travel itineraries
+6. Creating and managing trip todos/checklists
 
 IMPORTANT - Current Date Information:
 - Today's date is: {current_date}
@@ -75,6 +78,19 @@ You have access to these travel services:
 - Activity and tour search
 - Currency conversion and exchange rates
 - Travel budget calculation
+- Todo/checklist creation for trip planning
+
+CREATING TODOS:
+When users ask to create todos, a checklist, packing list, or preparation tasks, use the todo tools:
+- Use create_multiple_todos for creating several tasks at once (more efficient)
+- Use create_todo for adding a single task
+- Categories: packing, booking, documents, activities, transportation, accommodation, other
+- Priorities: low, medium, high
+- Examples of when to use:
+  - "Create a packing list for Paris" -> create multiple todos with packing category
+  - "What should I prepare for this trip?" -> suggest and create preparation todos
+  - "Add todo to book hotel" -> create single todo with booking category
+  - "Make a checklist for the trip" -> create comprehensive trip checklist
 
 Always provide helpful, accurate information and guide users through the travel planning process step by step.
 
@@ -185,6 +201,15 @@ class TravelAgentOrchestrator:
                     exchange_data=result_data,
                     tool_execution_id=tool_execution_id,
                 )
+            elif result_type == "todos":
+                # Extract todos list from result
+                todos = result_data.get("todos", [])
+                if result_data.get("todo"):
+                    todos = [result_data.get("todo")]
+                await emitter.emit_todos(
+                    todos=todos,
+                    tool_execution_id=tool_execution_id,
+                )
         except Exception as e:
             logger.warning(f"Failed to emit structured result for {tool_name}: {e}")
 
@@ -246,6 +271,7 @@ class TravelAgentOrchestrator:
         conversation_id: str,
         tool_call_id: str,
         emitter: Optional[EventEmitter] = None,
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Execute a single tool, log execution, and emit structured result."""
         tool = self._tool_map.get(tool_name)
@@ -272,8 +298,14 @@ class TravelAgentOrchestrator:
         if emitter:
             await emitter.emit_tool_start(tool_name, parameters)
 
+        # Inject context for tools that need it
+        exec_params = dict(parameters)
+        if getattr(tool, 'needs_context', False):
+            exec_params['conversation_id'] = conversation_id
+            exec_params['user_id'] = user_id
+
         try:
-            result = await tool.execute(**parameters)
+            result = await tool.execute(**exec_params)
             duration_ms = int((time.time() - start_time) * 1000)
 
             if result.success:
@@ -352,6 +384,7 @@ class TravelAgentOrchestrator:
         tool_calls: List[Dict[str, Any]],
         conversation_id: str,
         emitter: Optional[EventEmitter] = None,
+        user_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Execute multiple tool calls and return results."""
         results = []
@@ -374,6 +407,7 @@ class TravelAgentOrchestrator:
                 conversation_id=conversation_id,
                 tool_call_id=tool_id,
                 emitter=emitter,
+                user_id=user_id,
             )
 
             # Convert result to string for conversation history
@@ -407,6 +441,7 @@ class TravelAgentOrchestrator:
             The final assistant response
         """
         conversation_id = conversation.conversation_id
+        user_id = conversation.user_id
 
         # Add user message to history
         conversation.add_user_message(user_message)
@@ -453,6 +488,7 @@ class TravelAgentOrchestrator:
                     tool_calls=[tc.to_dict() for tc in llm_response.tool_calls],
                     conversation_id=conversation_id,
                     emitter=emitter,
+                    user_id=user_id,
                 )
 
                 # Add tool results to conversation
