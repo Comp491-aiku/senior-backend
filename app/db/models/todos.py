@@ -139,7 +139,7 @@ class TodoService:
             .select("*")
             .eq("id", todo_id)
             .eq("conversation_id", conversation_id)
-            .single()
+            .maybe_single()
             .execute()
         )
 
