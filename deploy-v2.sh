@@ -23,7 +23,7 @@ set -e
 # Configuration
 # =============================================================================
 
-PROJECT_ID="${PROJECT_ID:-aiku-travel-agent}"
+PROJECT_ID="${PROJECT_ID:-aiku-backend}"
 REGION="${REGION:-europe-west1}"
 ENV="${ENV:-prod}"
 
