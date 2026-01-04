@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from datetime import datetime
 
 from app.core.security import CurrentUser, get_current_user
+from app.core.permissions import check_conversation_access, Permission
 from app.api.schemas import (
     ConversationCreate,
     ConversationUpdate,
@@ -90,12 +91,11 @@ async def get_conversation(
     conversation_id: str,
     user: CurrentUser = Depends(get_current_user),
 ):
-    """Get a specific conversation."""
-    service = get_conversation_service()
-    conversation = await service.get_conversation(conversation_id, user.id)
-
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    """Get a specific conversation (owner or shared user)."""
+    # Use permission check to allow shared users
+    conversation, _ = await check_conversation_access(
+        conversation_id, user, Permission.VIEW
+    )
 
     return ConversationResponse(
         id=conversation["id"],
