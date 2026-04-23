@@ -1,13 +1,12 @@
 # AIKU — Senior Design Project Backend
 
-> Multi-agent travel planning backend. 8 specialized microservices coordinated by an Anthropic Claude orchestrator. Live at [secoa.ai](https://secoa.ai).
+> Multi-agent travel planning backend. 8 specialized microservices coordinated by an LLM orchestrator (Anthropic Claude).
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Anthropic](https://img.shields.io/badge/Anthropic-Claude_Sonnet_4.5-D97757?style=flat-square)](https://www.anthropic.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com/)
 [![Cloud Run](https://img.shields.io/badge/Google_Cloud-Run-4285F4?style=flat-square&logo=google-cloud&logoColor=white)](https://cloud.google.com/run)
-[![Live](https://img.shields.io/badge/live-secoa.ai-success?style=flat-square)](https://secoa.ai)
 
 ---
 
@@ -25,7 +24,7 @@ The backend half of the [AIKU Senior Design Project](https://github.com/Comp491-
 ```mermaid
 flowchart TB
     User[Browser]
-    Frontend[Vercel · Next.js 15<br/>secoa.ai]
+    Frontend[Vercel · Next.js 15]
     Backend[Cloud Run · FastAPI<br/>Anthropic Orchestrator]
     Supabase[(Supabase<br/>Auth + Postgres + RLS)]
     Claude[Anthropic Claude<br/>claude-sonnet-4-5]
