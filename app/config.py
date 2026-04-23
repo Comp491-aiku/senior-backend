@@ -5,6 +5,7 @@ Pydantic settings for environment-based configuration.
 """
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 from typing import List, Optional
 
 
@@ -45,7 +46,10 @@ class Settings(BaseSettings):
 
     # Google Cloud (for FlightsAPI)
     GOOGLE_SERVICE_ACCOUNT_FILE: Optional[str] = "api-key.json"
-    FLIGHTS_API_KEY: str
+    FLIGHTS_API_KEY: str = Field(
+        ...,
+        description="Flights API key injected via environment or secret manager",
+    )
     FLIGHTS_API_URL: str = "https://fast-flights-api-1042410626896.europe-west1.run.app"
 
     # External Travel Agents
