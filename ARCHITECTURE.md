@@ -728,7 +728,7 @@ LLM_MAX_ITERATIONS=25
 
 # Fast Flights API (GCP Cloud Run)
 FLIGHTS_API_URL=https://fast-flights-api-1042410626896.europe-west1.run.app
-FLIGHTS_API_KEY=ff-2026-ilker-secret-xyz123
+FLIGHTS_API_KEY=your-flights-api-key
 
 # External Agents (Vercel)
 WEATHER_AGENT_URL=https://weather-agent-seven.vercel.app

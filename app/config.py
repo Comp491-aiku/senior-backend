@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 
     # Google Cloud (for FlightsAPI)
     GOOGLE_SERVICE_ACCOUNT_FILE: Optional[str] = "api-key.json"
-    FLIGHTS_API_KEY: str = "ff-2026-ilker-secret-xyz123"
+    FLIGHTS_API_KEY: str = "your-flights-api-key"
     FLIGHTS_API_URL: str = "https://fast-flights-api-1042410626896.europe-west1.run.app"
 
     # External Travel Agents
