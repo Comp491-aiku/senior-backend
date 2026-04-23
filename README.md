@@ -1,268 +1,198 @@
-# AIKU Backend
+# AIKU — Senior Design Project Backend
 
-AI-powered travel planning backend built with FastAPI, featuring intelligent agents for itinerary generation.
+> Multi-agent travel planning backend. 8 specialized microservices coordinated by an Anthropic Claude orchestrator. Live at [secoa.ai](https://secoa.ai).
 
-## Tech Stack
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Anthropic](https://img.shields.io/badge/Anthropic-Claude_Sonnet_4.5-D97757?style=flat-square)](https://www.anthropic.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com/)
+[![Cloud Run](https://img.shields.io/badge/Google_Cloud-Run-4285F4?style=flat-square&logo=google-cloud&logoColor=white)](https://cloud.google.com/run)
+[![Live](https://img.shields.io/badge/live-secoa.ai-success?style=flat-square)](https://secoa.ai)
 
-- **Framework**: FastAPI
-- **Language**: Python 3.11+
-- **Database**: PostgreSQL with SQLAlchemy ORM
-- **Cache**: Redis
-- **Task Queue**: Celery
-- **AI/ML**: Anthropic Claude, OpenAI
-- **APIs**: Amadeus (flights/hotels), Foursquare (places), OpenWeatherMap, SerpApi
+---
 
-## Features
+## What this is
 
-- Multi-agent AI system for intelligent trip planning
-- Flight search and recommendations via Amadeus API
-- Hotel search and booking information
-- Activity recommendations based on user preferences
-- Real-time weather forecasts
-- Budget optimization and cost tracking
-- Asynchronous task processing with Celery
-- Comprehensive API documentation (OpenAPI/Swagger)
+The backend half of the [AIKU Senior Design Project](https://github.com/Comp491-aiku) at Koç University. A production-deployed multi-agent travel planning system with Claude as the orchestrator and 8 specialized microservices for weather, flights, hotels, transfers, activities, currency, and utilities.
 
-## Project Structure
+**Frontend:** [senior-frontend](https://github.com/Comp491-aiku/senior-frontend)
+**Architecture deep-dive:** [`ARCHITECTURE.md`](ARCHITECTURE.md) (31 KB, full diagrams)
 
-```
-backend/
-├── agents/                    # AI Agents
-│   ├── orchestrator_agent.py # Main coordinator
-│   ├── flight_agent.py       # Flight search
-│   ├── accommodation_agent.py # Hotel search
-│   ├── activity_agent.py     # Activity planning
-│   └── weather_agent.py      # Weather forecasts
-├── api/                      # External API clients
-│   ├── amadeus_client.py    # Amadeus API
-│   ├── foursquare_client.py # Foursquare API
-│   ├── openweather_client.py # OpenWeatherMap
-│   └── serpapi_client.py    # SerpApi
-├── models/                   # Database models
-│   ├── user.py
-│   ├── trip.py
-│   └── itinerary.py
-├── routers/                  # API endpoints
-│   ├── trips.py
-│   ├── itinerary.py
-│   ├── flights.py
-│   ├── accommodations.py
-│   └── weather.py
-├── services/                 # Business logic
-│   ├── itinerary_generator.py
-│   ├── scheduler.py
-│   └── optimizer.py
-├── utils/                    # Utilities
-│   ├── config.py
-│   ├── validators.py
-│   └── helpers.py
-├── tests/                    # Tests
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
-├── main.py                   # FastAPI app entry point
-└── requirements.txt          # Python dependencies
+---
+
+## High-level architecture
+
+```mermaid
+flowchart TB
+    User[Browser]
+    Frontend[Vercel · Next.js 15<br/>secoa.ai]
+    Backend[Cloud Run · FastAPI<br/>Anthropic Orchestrator]
+    Supabase[(Supabase<br/>Auth + Postgres + RLS)]
+    Claude[Anthropic Claude<br/>claude-sonnet-4-5]
+
+    subgraph Agents[Vercel · Specialized Agent Microservices]
+      Weather[Weather]
+      Flight[Flight]
+      Hotel[Hotel]
+      Transfer[Transfer]
+      Activity[Activities]
+      Exchange[Exchange]
+      Utility[Utility]
+    end
+
+    User --> Frontend
+    Frontend -->|REST + SSE| Backend
+    Backend --> Claude
+    Backend --> Supabase
+    Backend -->|tool calls| Agents
+
+    style User fill:#1a1a1f,stroke:#f97316,color:#fff
+    style Backend fill:#1a1a1f,stroke:#34d399,color:#fff
+    style Claude fill:#1a1a1f,stroke:#D97757,color:#fff
 ```
 
-## Getting Started
+---
+
+## Why it's interesting
+
+This isn't a tutorial project — it's a **deployed production system** with the same architectural DNA as commercial AI orchestration platforms:
+
+- **LLM-as-orchestrator** pattern — Claude decides which microservice to call, in what order
+- **Tool-calling architecture** — each agent exposes a tool surface that Claude invokes
+- **Microservice-per-domain** — independent agents on Vercel, scaled separately
+- **Server-Sent Events** for streaming itinerary generation
+- **Row-Level Security** in Postgres for multi-tenant data isolation
+- **CI/CD** through Cloud Build → Artifact Registry → Cloud Run
+
+The same patterns later informed [Mindra](https://mindra.co), the multi-agent orchestration platform that now runs on this foundation.
+
+---
+
+## Live infrastructure
+
+| Layer | Where | What |
+|---|---|---|
+| Frontend | Vercel (global) | Next.js 15 · TypeScript |
+| Backend | Cloud Run (europe-west1) | FastAPI · Python 3.13 |
+| Flight microservice | Cloud Run | Amadeus SDK wrapper |
+| Agent microservices ×7 | Vercel | Per-domain serverless functions |
+| Database | Supabase | PostgreSQL + Row Level Security |
+| Auth | Supabase + Google OAuth 2.0 | |
+| LLM | Anthropic Claude | claude-sonnet-4-5 |
+| Secrets | Google Secret Manager | API keys |
+| CI/CD | Cloud Build | Artifact Registry deploys |
+
+---
+
+## The 8 specialized agents
+
+| Agent | Provider | Purpose |
+|---|---|---|
+| **Orchestrator** | Anthropic Claude | Plans, delegates, synthesizes |
+| **Weather** | OpenWeatherMap | Per-destination forecasts |
+| **Flight** | Amadeus | Search + price rank |
+| **Hotel** | Amadeus | Search + filter |
+| **Transfer** | Amadeus | Ground transport |
+| **Activities** | Amadeus + Foursquare | POI + attractions |
+| **Exchange** | ExchangeRate API | Currency conversion |
+| **Utility** | TimeZoneDB + GeoNames | Time, geocoding |
+
+---
+
+## Project structure
+
+```
+app/
+├── api/                       # FastAPI routes (REST + SSE)
+├── agentic/
+│   ├── orchestrator/          # Travel agent + planning loop
+│   ├── llm/                   # Anthropic + OpenAI adapters
+│   ├── tools/
+│   │   └── travel/            # Weather, flights, hotels, transfers, activities...
+│   ├── history/               # Conversation persistence
+│   └── events/                # SSE event emitter
+├── core/                      # Auth, permissions, exceptions
+├── db/                        # SQLAlchemy + Supabase client
+├── config.py
+└── main.py
+migrations/                    # Alembic database migrations
+tests/                         # Unit + integration + e2e
+ARCHITECTURE.md                # 31KB system-design deep dive
+deploy-v2.sh                   # Cloud Run deploy script
+cloudbuild.yaml                # Cloud Build CI/CD
+```
+
+---
+
+## Quick start
 
 ### Prerequisites
-
 - Python 3.11+
-- PostgreSQL
-- Redis (optional, for caching)
-- API Keys (see Environment Variables section)
+- PostgreSQL (or Supabase project)
+- Anthropic API key
+- Amadeus, Foursquare, OpenWeather, SerpApi keys (see `.env.example`)
 
-### Installation
+### Run locally
 
-1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd backend
-```
+git clone https://github.com/Comp491-aiku/senior-backend.git
+cd senior-backend
 
-2. Create a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-```
 
-4. Set up environment variables:
-```bash
-cp .env.example .env
-```
+cp .env.example .env   # fill in API keys
+alembic upgrade head   # run migrations
 
-Edit `.env` and add your configuration:
-```env
-# Application
-SECRET_KEY=your-secret-key-here
-DATABASE_URL=postgresql://user:password@localhost:5432/aiku
-
-# API Keys
-AMADEUS_API_KEY=your-amadeus-key
-AMADEUS_API_SECRET=your-amadeus-secret
-FOURSQUARE_API_KEY=your-foursquare-key
-OPENWEATHER_API_KEY=your-openweather-key
-SERPAPI_API_KEY=your-serpapi-key
-ANTHROPIC_API_KEY=your-anthropic-key
-```
-
-5. Set up the database:
-```bash
-# Create database tables
-alembic upgrade head
-```
-
-6. Run the development server:
-```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Docs: http://localhost:8000/docs
 ```
 
-The API will be available at [http://localhost:8000](http://localhost:8000)
-
-API documentation: [http://localhost:8000/docs](http://localhost:8000/docs)
-
-## Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `SECRET_KEY` | Application secret key | Yes |
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `REDIS_URL` | Redis connection string | No |
-| `AMADEUS_API_KEY` | Amadeus API key | Yes |
-| `AMADEUS_API_SECRET` | Amadeus API secret | Yes |
-| `FOURSQUARE_API_KEY` | Foursquare API key | Yes |
-| `OPENWEATHER_API_KEY` | OpenWeatherMap API key | Yes |
-| `SERPAPI_API_KEY` | SerpApi API key | Yes |
-| `ANTHROPIC_API_KEY` | Anthropic Claude API key | Yes |
-
-## API Endpoints
-
-### Trips
-- `GET /api/trips` - List all trips
-- `POST /api/trips` - Create new trip
-- `GET /api/trips/{trip_id}` - Get trip details
-- `PUT /api/trips/{trip_id}` - Update trip
-- `DELETE /api/trips/{trip_id}` - Delete trip
-
-### Itinerary
-- `POST /api/trips/{trip_id}/itinerary/generate` - Generate AI-powered itinerary
-- `GET /api/trips/{trip_id}/itinerary` - Get itinerary
-- `PUT /api/trips/{trip_id}/itinerary` - Update itinerary
-
-### Flights
-- `GET /api/flights/search` - Search flights
-
-### Accommodations
-- `GET /api/accommodations/search` - Search hotels
-
-### Weather
-- `GET /api/weather` - Get weather forecast
-
-## Agent Architecture
-
-The backend uses a multi-agent system to generate personalized travel itineraries:
-
-### Orchestrator Agent
-Coordinates all specialized agents and combines their outputs into a complete itinerary.
-
-### Flight Agent
-- Searches for flights using Amadeus API
-- Ranks options based on price, duration, and preferences
-- Provides best recommendations within budget
-
-### Accommodation Agent
-- Searches for hotels using Amadeus API
-- Filters by location, budget, and amenities
-- Recommends optimal accommodations
-
-### Activity Agent
-- Uses Foursquare and SerpApi to find attractions
-- Creates day-by-day activity schedules
-- Optimizes for travel time and user interests
-
-### Weather Agent
-- Fetches forecasts from OpenWeatherMap
-- Influences activity recommendations
-- Provides packing suggestions
-
-## Database Models
-
-### User
-- Email, name, password
-- Related trips
-
-### Trip
-- Destination, dates, budget
-- Travelers count
-- User preferences
-- Status (draft, planning, confirmed, completed)
-
-### Itinerary
-- Generated itinerary data
-- Daily schedules
-- Activities, meals, accommodations
-- Total cost breakdown
-
-## Testing
-
-Run tests with pytest:
-
-```bash
-# All tests
-pytest
-
-# With coverage
-pytest --cov=. --cov-report=html
-
-# Specific test file
-pytest tests/unit/test_agents.py
-```
-
-## Development
-
-### Adding a New Agent
-
-1. Create new agent file in `agents/` directory
-2. Inherit from `BaseAgent` class
-3. Implement `execute()` method
-4. Register with orchestrator
-
-### Adding a New API Endpoint
-
-1. Create/update router in `routers/` directory
-2. Define Pydantic schemas
-3. Implement endpoint logic
-4. Add to `main.py` router includes
-
-## Deployment
-
-### Using Docker
+### Docker
 
 ```bash
 docker build -t aiku-backend .
 docker run -p 8000:8000 --env-file .env aiku-backend
 ```
 
-### Using Docker Compose
+### Deploy to Cloud Run
 
 ```bash
-docker-compose up -d
+./deploy-v2.sh
 ```
 
-## Contributing
+---
 
-1. Create a feature branch
-2. Make your changes
-3. Add tests
-4. Run linting: `ruff check .`
-5. Format code: `black .`
-6. Submit a pull request
+## Selected API surface
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/trips` | Create new trip |
+| `POST` | `/api/trips/{id}/itinerary/generate` | AI-orchestrated itinerary build (SSE stream) |
+| `GET`  | `/api/trips/{id}` | Trip detail + itinerary |
+| `GET`  | `/api/flights/search` | Flight search via orchestrator |
+| `GET`  | `/api/accommodations/search` | Hotel search |
+| `GET`  | `/api/weather` | Per-destination forecast |
+| `GET`  | `/docs` | OpenAPI / Swagger UI |
+
+---
+
+## Architecture notes
+
+For the full system design including auth flow, microservice contracts, deployment topology, and SSE event schema, see [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+---
+
+## Team
+
+Built by the **Comp491-aiku Senior Design team** at Koç University.
+
+---
+
+## Author (this repo's README)
+
+**İlker Yörü** — CTO @ [Mindra](https://mindra.co)
+[GitHub](https://github.com/1lker) · [LinkedIn](https://linkedin.com/in/ilker-yoru) · [ilkeryoru.com](https://ilkeryoru.com)
 
 ## License
 
